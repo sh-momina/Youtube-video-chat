@@ -1,10 +1,15 @@
 from fastapi import FastAPI
 from get_transcript import generate_transcript
+from cookies_helper import ensure_cookies_file
 from index import build_chain
 
 app = FastAPI()
 
 cache = {}
+
+@app.on_event("startup")
+def on_startup():
+    ensure_cookies_file()
 
 @app.get("/generate")
 def generate(url: str, query: str = None):

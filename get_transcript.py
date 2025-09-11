@@ -1,12 +1,13 @@
-import yt_dlp
+# get_transcript.py
 import os
+import yt_dlp
 import openai
 from dotenv import load_dotenv
+from cookies_helper import ensure_cookies_file
 
-load_dotenv() 
+load_dotenv()  # load OPENAI_API_KEY locally if used
 
 def split_file(file_path, max_chunk_size=25 * 1024 * 1024):
-    """Split a file into smaller chunks (25 MB default)."""
     chunks = []
     with open(file_path, "rb") as f:
         i = 0
@@ -21,15 +22,18 @@ def split_file(file_path, max_chunk_size=25 * 1024 * 1024):
             i += 1
     return chunks
 
-
 def generate_transcript(video_url: str):
-    """Download YouTube audio, transcribe, and clean up temporary files."""
+    # ensure cookies.txt exists if env var (writes file from env)
+    cookies_path = ensure_cookies_file()
 
     ydl_opts = {
         "format": "bestaudio/best",
         "outtmpl": "audio.%(ext)s",
-        "cookiefile": "cookies.txt",   # 👈 Use cookies for restricted/private videos
+        "quiet": True,
     }
+    if cookies_path:
+        # Python yt-dlp option for cookie file
+        ydl_opts["cookiefile"] = cookies_path
 
     audio_file = "audio.mp3"
     transcript = ""
@@ -42,14 +46,11 @@ def generate_transcript(video_url: str):
         # Ensure only one audio.mp3 exists
         if os.path.exists(audio_file):
             os.remove(audio_file)
-
         os.rename(filename, audio_file)
 
-    # Split into chunks if large
+    # Split & transcribe
     chunks = split_file(audio_file)
-
     try:
-        # Transcribe each chunk
         for i, chunk in enumerate(chunks):
             with open(chunk, "rb") as f:
                 response = openai.audio.transcriptions.create(
@@ -58,14 +59,15 @@ def generate_transcript(video_url: str):
                     language="en"
                 )
                 transcript += f"\n--- Chunk {i+1} ---\n" + response.text
-
     finally:
-        # Clean up temporary files
+        # cleanup
         for chunk in chunks:
             if os.path.exists(chunk):
                 os.remove(chunk)
         if os.path.exists(audio_file):
             os.remove(audio_file)
 
-    return transcript
+    with open("transcript.txt", "w", encoding="utf-8") as out:
+        out.write(transcript)
 
+    return transcript
