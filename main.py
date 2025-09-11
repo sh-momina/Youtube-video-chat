@@ -21,3 +21,7 @@ def generate(url: str, query: str = None):
             return {"error": str(e)}
 
     return {"message": "Transcript ready. Add &query=your+question"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8080)
