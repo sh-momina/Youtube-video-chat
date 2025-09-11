@@ -1,4 +1,10 @@
 {
+  "functions": {
+    "api/**/*.py": {
+      "runtime": "@vercel/python@3.9",
+      "excludeFiles": "{.venv,__pycache__,node_modules,*.cache,tests,public,build}/**"
+    }
+  },
   "builds": [
     { "src": "main.py", "use": "@vercel/python" }
   ],
