@@ -7,3 +7,4 @@ faiss-cpu
 openai
 tiktoken
 yt-dlp
+langchain-openai
