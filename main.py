@@ -6,7 +6,7 @@ app = FastAPI()
 
 cache = {}
 
-@app.get("/")
+@app.get("/generate")
 def generate(url: str, query: str = None):
     if url not in cache:
         transcript = generate_transcript(url)
