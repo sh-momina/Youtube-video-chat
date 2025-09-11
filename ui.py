@@ -2,7 +2,7 @@ import streamlit as st
 from get_transcript import generate_transcript
 from index import build_chain
 
-st.title("YouTube Video Chat")
+st.title("YouTube Video Chatt")
 
 # Input for YouTube URL
 url = st.text_input("Enter the video URL")
