@@ -3,8 +3,7 @@ import os
 import openai
 from dotenv import load_dotenv
 
-load_dotenv()
-
+load_dotenv() 
 
 def split_file(file_path, max_chunk_size=25 * 1024 * 1024):
     """Split a file into smaller chunks (25 MB default)."""
@@ -25,12 +24,15 @@ def split_file(file_path, max_chunk_size=25 * 1024 * 1024):
 
 def generate_transcript(video_url: str):
     """Download YouTube audio, transcribe, and clean up temporary files."""
+
     ydl_opts = {
         "format": "bestaudio/best",
         "outtmpl": "audio.%(ext)s",
+        "cookiefile": "cookies.txt",   # 👈 Use cookies for restricted/private videos
     }
 
     audio_file = "audio.mp3"
+    transcript = ""
 
     # Download audio
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -43,11 +45,11 @@ def generate_transcript(video_url: str):
 
         os.rename(filename, audio_file)
 
-    transcript = ""
+    # Split into chunks if large
     chunks = split_file(audio_file)
 
     try:
-        # Transcribe chunks
+        # Transcribe each chunk
         for i, chunk in enumerate(chunks):
             with open(chunk, "rb") as f:
                 response = openai.audio.transcriptions.create(
@@ -58,7 +60,7 @@ def generate_transcript(video_url: str):
                 transcript += f"\n--- Chunk {i+1} ---\n" + response.text
 
     finally:
-        # Clean up temp files (chunks + main audio)
+        # Clean up temporary files
         for chunk in chunks:
             if os.path.exists(chunk):
                 os.remove(chunk)
@@ -66,3 +68,4 @@ def generate_transcript(video_url: str):
             os.remove(audio_file)
 
     return transcript
+
