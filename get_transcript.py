@@ -5,7 +5,7 @@ import openai
 from dotenv import load_dotenv
 from cookies_helper import ensure_cookies_file
 
-load_dotenv()  # load OPENAI_API_KEY locally if used
+load_dotenv()  
 
 def split_file(file_path, max_chunk_size=25 * 1024 * 1024):
     chunks = []
