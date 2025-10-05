@@ -17,7 +17,7 @@ def ensure_cookies_file(path="cookies.txt"):
         logger.info(f"{path} already exists")
         return path
 
-    raw = os.getenv("YOYTUBE_COOKIES")
+    raw = os.getenv("YOUTUBE_COOKIES")
     b64 = os.getenv("YOUTUBE_COOKIES_B64")
 
     # Case 1: Raw cookies (preferred, easier)
