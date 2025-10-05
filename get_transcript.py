@@ -1,44 +1,97 @@
-import yt_dlp
-from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
 import os
+import yt_dlp
+import openai
+import base64
+import tempfile
+from dotenv import load_dotenv
 
-def generate_transcript(video_url):
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    cookie_path = os.path.join(BASE_DIR, "cookies.txt")
-    if not os.path.exists(cookie_path):
-        return {"status": "error", "message": f"Cookie file not found at {cookie_path}"}
+load_dotenv()  # load .env file
+
+
+def split_file(file_path, max_chunk_size=25 * 1024 * 1024):
+    chunks = []
+    with open(file_path, "rb") as f:
+        i = 0
+        while True:
+            data = f.read(max_chunk_size)
+            if not data:
+                break
+            chunk_path = f"chunk_{i}.mp3"
+            with open(chunk_path, "wb") as c:
+                c.write(data)
+            chunks.append(chunk_path)
+            i += 1
+    return chunks
+
+
+def generate_transcript(video_url: str):
+    # 🔹 Get encoded cookies from .env
+    encoded_cookies = os.getenv("YOUTUBE_COOKIES_B64")
+    cookies_path = None
+
+    if encoded_cookies:
+        decoded = base64.b64decode(encoded_cookies)
+        # Write decoded cookies into a temporary file
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".txt")
+        tmp.write(decoded)
+        tmp.close()
+        cookies_path = tmp.name
+        print("Using cookies from:", cookies_path)
 
     ydl_opts = {
+        "format": "bestaudio/best",
+        "outtmpl": "audio.%(ext)s",
         "quiet": True,
-        "cookiefile": cookie_path,
-        "nocheckcertificate": True,
-        "geo_bypass": True,
-        "noplaylist": True,
-        "retries": 3,
-        "fragment_retries": 3,
     }
 
+    if cookies_path:
+        # yt-dlp option for passing cookies file
+        ydl_opts["cookiefile"] = cookies_path
+
+    audio_file = "audio.mp3"
+    transcript = ""
+
+    # 🔹 Download audio using yt-dlp
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(video_url, download=True)
+        filename = ydl.prepare_filename(info)
+
+        # Ensure only one audio.mp3 exists
+        if os.path.exists(audio_file):
+            os.remove(audio_file)
+        os.rename(filename, audio_file)
+
+    # 🔹 Split & transcribe audio
+    chunks = split_file(audio_file)
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(video_url, download=False)
-            video_id = info.get("id")
-            title = info.get("title")
+        for i, chunk in enumerate(chunks):
+            with open(chunk, "rb") as f:
+                response = openai.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=f,
+                    language="en"
+                )
+                transcript += f"\n--- Chunk {i+1} ---\n" + response.text
+    finally:
+        # Cleanup temporary files
+        for chunk in chunks:
+            if os.path.exists(chunk):
+                os.remove(chunk)
+        if os.path.exists(audio_file):
+            os.remove(audio_file)
+        if cookies_path and os.path.exists(cookies_path):
+            os.remove(cookies_path)
 
-        try:
-            transcript = YouTubeTranscriptApi.get_transcript(video_id)
-            text = " ".join([x["text"] for x in transcript])
-            return {
-                "status": "success",
-                "video_title": title,
-                "video_id": video_id,
-                "transcript": text
-            }
-        except TranscriptsDisabled:
-            return {"status": "error", "message": "Transcripts are disabled for this video."}
-        except NoTranscriptFound:
-            return {"status": "error", "message": "No transcript available for this video."}
-        except Exception as e:
-            return {"status": "error", "message": f"Transcript fetch failed: {str(e)}"}
+    # 🔹 Save transcript to file
+    # with open("transcript.txt", "w", encoding="utf-8") as out:
+    #     out.write(transcript)
 
-    except Exception as e:
-        return {"status": "error", "message": f"yt-dlp failed: {str(e)}"}
+    return transcript
+
+
+# For quick testing
+# if __name__ == "__main__":
+#     url = "https://youtu.be/8SdR5i3ZoqE?si=WNK6Sas1pJADS5DX"
+#     transcript = generate_transcript(url)
+#     print("Transcript length:", len(transcript))
+#     print("First 500 chars:\n", transcript[:500])
