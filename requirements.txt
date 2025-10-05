@@ -9,3 +9,4 @@ tiktoken
 yt-dlp
 langchain-openai
 requests
+youtube-transcript-api
