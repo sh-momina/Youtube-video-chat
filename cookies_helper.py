@@ -32,7 +32,7 @@ def ensure_cookies_file(path="cookies.txt"):
 
     if b64:
         try:
-            data = base64.b64decode(b64)
+            data = base64.b64decode(b64, validate=False)
             with open(path, "wb") as f:
                 f.write(data)
             logger.info(f"Wrote cookies file from YTDLP_COOKIES_B64 to {path}")
