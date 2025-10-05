@@ -25,19 +25,13 @@ def split_file(file_path, max_chunk_size=25 * 1024 * 1024):
 def generate_transcript(video_url: str):
     # ensure cookies.txt exists if env var (writes file from env)
     cookies_path = ensure_cookies_file()
+    print("Using cookies from:", cookies_path)
 
     ydl_opts = {
-    "format": "bestaudio/best",
-    "outtmpl": "audio.%(ext)s",
-    "postprocessors": [{
-        "key": "FFmpegExtractAudio",
-        "preferredcodec": "mp3",
-        "preferredquality": "192",
-    }],
-    "cookiefile": cookies_path if cookies_path else None,
-    "quiet": True,
-}
-    
+        "format": "bestaudio/best",
+        "outtmpl": "audio.%(ext)s",
+        "quiet": True,
+    }
     if cookies_path:
         # Python yt-dlp option for cookie file
         ydl_opts["cookiefile"] = cookies_path
@@ -78,3 +72,10 @@ def generate_transcript(video_url: str):
         out.write(transcript)
 
     return transcript
+
+# if __name__ == "__main__":
+#     url = "https://youtu.be/8SdR5i3ZoqE?si=WNK6Sas1pJADS5DX"   # replace with your test video
+#     transcript = generate_transcript(url)
+#     print("Transcript length:", len(transcript))
+#     print("First 500 chars:\n", transcript[:500])
+
