@@ -3,7 +3,7 @@ from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, No
 import os
 
 def generate_transcript(video_url):
-    cookie_path = "cookies.txt"
+    cookie_path = r"D:\study\projects\LangChain\Youtube_video_chat\cookies.txt"
     if not os.path.exists(cookie_path):
         return {"status": "error", "message": f"Cookie file not found at {cookie_path}"}
 
