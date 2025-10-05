@@ -17,20 +17,39 @@ def on_startup():
     else:
         logger.warning("No valid cookies found. Some YouTube videos may fail.")
 
+
 @app.get("/generate")
-def generate(request: Request, url: str, query: str):
-    result = generate_transcript(url)
-    if "error" in result:
-        return {"status": "error", "message": result["error"]}
-    return {"status": "success", "data": result}
+def generate(request: Request, url: str, query: str = None):
+    """
+    Generate transcript and optionally process a query.
+    """
+    try:
+        result = generate_transcript(url)
 
-    if query:
-        try:
-            return {"answer": cache[url].invoke(query)}
-        except Exception as e:
-            return {"error": str(e)}
+        # Handle both dict and string types
+        if isinstance(result, dict):
+            if "error" in result:
+                return {"status": "error", "message": result["error"]}
+            else:
+                transcript_text = result.get("transcript", "")
+        else:
+            transcript_text = str(result)
 
-    return {"message": "Transcript ready. Add &query=your+question"}
+        # Build chain or process query if provided
+        if query:
+            try:
+                if url not in cache:
+                    cache[url] = build_chain(transcript_text)
+                answer = cache[url].invoke(query)
+                return {"status": "success", "answer": answer}
+            except Exception as e:
+                return {"status": "error", "message": f"Query failed: {str(e)}"}
+
+        return {"status": "success", "data": transcript_text}
+
+    except Exception as e:
+        return {"status": "error", "message": f"Internal error: {str(e)}"}
+
 
 if __name__ == "__main__":
     import uvicorn
