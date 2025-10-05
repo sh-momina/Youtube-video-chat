@@ -2,10 +2,11 @@
 import os
 import yt_dlp
 import openai
+import base64
+import tempfile
 from dotenv import load_dotenv
-from cookies_helper import ensure_cookies_file
 
-load_dotenv()  
+load_dotenv()  # load .env file
 
 def split_file(file_path, max_chunk_size=25 * 1024 * 1024):
     chunks = []
@@ -23,9 +24,18 @@ def split_file(file_path, max_chunk_size=25 * 1024 * 1024):
     return chunks
 
 def generate_transcript(video_url: str):
-    # ensure cookies.txt exists if env var (writes file from env)
-    cookies_path = ensure_cookies_file()
-    print("Using cookies from:", cookies_path)
+    # 🔹 Get encoded cookies from .env
+    encoded_cookies = os.getenv("YOUTUBE_COOKIES_B64")
+
+    cookies_path = None
+    if encoded_cookies:
+        decoded = base64.b64decode(encoded_cookies)
+        # Write decoded cookies into a temporary file
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".txt")
+        tmp.write(decoded)
+        tmp.close()
+        cookies_path = tmp.name
+        print("Using cookies from:", cookies_path)
 
     ydl_opts = {
         "format": "bestaudio/best",
@@ -33,13 +43,13 @@ def generate_transcript(video_url: str):
         "quiet": True,
     }
     if cookies_path:
-        # Python yt-dlp option for cookie file
+        # yt-dlp option for passing cookies file
         ydl_opts["cookiefile"] = cookies_path
 
     audio_file = "audio.mp3"
     transcript = ""
 
-    # Download audio
+    # 🔹 Download audio using yt-dlp
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(video_url, download=True)
         filename = ydl.prepare_filename(info)
@@ -49,7 +59,7 @@ def generate_transcript(video_url: str):
             os.remove(audio_file)
         os.rename(filename, audio_file)
 
-    # Split & transcribe
+    # 🔹 Split & transcribe audio
     chunks = split_file(audio_file)
     try:
         for i, chunk in enumerate(chunks):
@@ -61,21 +71,24 @@ def generate_transcript(video_url: str):
                 )
                 transcript += f"\n--- Chunk {i+1} ---\n" + response.text
     finally:
-        # cleanup
+        # Cleanup temporary files
         for chunk in chunks:
             if os.path.exists(chunk):
                 os.remove(chunk)
         if os.path.exists(audio_file):
             os.remove(audio_file)
+        if cookies_path and os.path.exists(cookies_path):
+            os.remove(cookies_path)
 
+    # 🔹 Save transcript to file
     with open("transcript.txt", "w", encoding="utf-8") as out:
         out.write(transcript)
 
     return transcript
 
+# For quick testing
 # if __name__ == "__main__":
-#     url = "https://youtu.be/8SdR5i3ZoqE?si=WNK6Sas1pJADS5DX"   # replace with your test video
+#     url = "https://youtu.be/8SdR5i3ZoqE?si=WNK6Sas1pJADS5DX"
 #     transcript = generate_transcript(url)
 #     print("Transcript length:", len(transcript))
 #     print("First 500 chars:\n", transcript[:500])
-

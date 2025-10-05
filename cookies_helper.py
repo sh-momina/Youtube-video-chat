@@ -18,7 +18,7 @@ def ensure_cookies_file(path="cookies.txt"):
         return path
 
     raw = os.getenv("YTDLP_COOKIES")
-    b64 = os.getenv("YTDLP_COOKIES_B64")
+    b64 = os.getenv("YOUTUBE_COOKIES_B64")
 
     # Case 1: Raw cookies (preferred, easier)
     if raw:
