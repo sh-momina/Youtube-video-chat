@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from get_transcript import generate_transcript
 from cookies_helper import ensure_cookies_file
 from index import build_chain
@@ -18,12 +18,11 @@ def on_startup():
         logger.warning("No valid cookies found. Some YouTube videos may fail.")
 
 @app.get("/generate")
-def generate(url: str, query: str = None):
-    if url not in cache:
-        transcript = generate_transcript(url)
-        if not transcript:
-            return {"error": "Transcript unavailable"}
-        cache[url] = build_chain(transcript)
+def generate(request: Request, url: str, query: str):
+    result = generate_transcript(url)
+    if "error" in result:
+        return {"status": "error", "message": result["error"]}
+    return {"status": "success", "data": result}
 
     if query:
         try:

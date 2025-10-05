@@ -1,94 +1,71 @@
-# get_transcript.py
 import os
 import yt_dlp
-import openai
-import base64
-import tempfile
-from dotenv import load_dotenv
+from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
+from urllib.parse import urlparse, parse_qs
 
-load_dotenv()  # load .env file
-
-def split_file(file_path, max_chunk_size=25 * 1024 * 1024):
-    chunks = []
-    with open(file_path, "rb") as f:
-        i = 0
-        while True:
-            data = f.read(max_chunk_size)
-            if not data:
-                break
-            chunk_path = f"chunk_{i}.mp3"
-            with open(chunk_path, "wb") as c:
-                c.write(data)
-            chunks.append(chunk_path)
-            i += 1
-    return chunks
+def extract_video_id(url: str) -> str:
+    """
+    Extracts YouTube video ID from various link formats.
+    """
+    parsed_url = urlparse(url)
+    if 'youtu.be' in parsed_url.netloc:
+        return parsed_url.path.strip('/')
+    query = parse_qs(parsed_url.query)
+    return query.get('v', [None])[0]
 
 def generate_transcript(video_url: str):
-    # 🔹 Get encoded cookies from .env
-    encoded_cookies = os.getenv("YOUTUBE_COOKIES_B64")
+    """
+    Downloads metadata using yt-dlp and transcript (if available) for a YouTube video.
+    Falls back gracefully if login or cookies are required.
+    """
+    video_id = extract_video_id(video_url)
+    if not video_id:
+        return {"error": "Invalid YouTube URL"}
 
-    cookies_path = None
-    if encoded_cookies:
-        decoded = base64.b64decode(encoded_cookies)
-        # Write decoded cookies into a temporary file
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".txt")
-        tmp.write(decoded)
-        tmp.close()
-        cookies_path = tmp.name
-        print("Using cookies from:", cookies_path)
+    # Make sure cookies.txt exists
+    cookie_path = "cookies.txt"
+    if not os.path.exists(cookie_path):
+        return {"error": "cookies.txt file not found. Please add it to your project root."}
 
+    # yt-dlp options with cookies
     ydl_opts = {
-        "format": "bestaudio/best",
-        "outtmpl": "audio.%(ext)s",
-        "quiet": True,
+        'cookiefile': cookie_path,
+        'quiet': True,
+        'nocheckcertificate': True,
+        'noplaylist': True,
+        'geo_bypass': True,
+        'outtmpl': 'downloads/%(id)s.%(ext)s',
+        'retries': 5,
+        'fragment_retries': 5,
     }
-    if cookies_path:
-        # yt-dlp option for passing cookies file
-        ydl_opts["cookiefile"] = cookies_path
 
-    audio_file = "audio.mp3"
-    transcript = ""
-
-    # 🔹 Download audio using yt-dlp
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(video_url, download=True)
-        filename = ydl.prepare_filename(info)
-
-        # Ensure only one audio.mp3 exists
-        if os.path.exists(audio_file):
-            os.remove(audio_file)
-        os.rename(filename, audio_file)
-
-    # 🔹 Split & transcribe audio
-    chunks = split_file(audio_file)
+    info = {}
     try:
-        for i, chunk in enumerate(chunks):
-            with open(chunk, "rb") as f:
-                response = openai.audio.transcriptions.create(
-                    model="whisper-1",
-                    file=f,
-                    language="en"
-                )
-                transcript += f"\n--- Chunk {i+1} ---\n" + response.text
-    finally:
-        # Cleanup temporary files
-        for chunk in chunks:
-            if os.path.exists(chunk):
-                os.remove(chunk)
-        if os.path.exists(audio_file):
-            os.remove(audio_file)
-        if cookies_path and os.path.exists(cookies_path):
-            os.remove(cookies_path)
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(video_url, download=False)
+    except yt_dlp.utils.DownloadError as e:
+        error_message = str(e)
+        if "Sign in to confirm you’re not a bot" in error_message:
+            return {"error": "YouTube is asking for login verification. Try refreshing your cookies.txt."}
+        else:
+            return {"error": f"yt-dlp failed: {error_message}"}
+    except Exception as e:
+        return {"error": f"Unexpected error: {str(e)}"}
 
-    # 🔹 Save transcript to file
-    with open("transcript.txt", "w", encoding="utf-8") as out:
-        out.write(transcript)
+    # Get transcript if available
+    transcript_text = ""
+    try:
+        transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+        transcript_text = " ".join([t['text'] for t in transcript_list])
+    except (TranscriptsDisabled, NoTranscriptFound):
+        transcript_text = "Transcript not available for this video."
+    except Exception as e:
+        transcript_text = f"Error fetching transcript: {str(e)}"
 
-    return transcript
-
-# For quick testing
-# if __name__ == "__main__":
-#     url = "https://youtu.be/8SdR5i3ZoqE?si=WNK6Sas1pJADS5DX"
-#     transcript = generate_transcript(url)
-#     print("Transcript length:", len(transcript))
-#     print("First 500 chars:\n", transcript[:500])
+    return {
+        "title": info.get("title", "Unknown Title"),
+        "uploader": info.get("uploader", "Unknown Uploader"),
+        "duration": info.get("duration", 0),
+        "transcript": transcript_text
+    }
