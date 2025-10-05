@@ -2,14 +2,20 @@ from fastapi import FastAPI
 from get_transcript import generate_transcript
 from cookies_helper import ensure_cookies_file
 from index import build_chain
+import logging
 
 app = FastAPI()
+logger = logging.getLogger("main")
 
 cache = {}
 
 @app.on_event("startup")
 def on_startup():
-    ensure_cookies_file()
+    cookies_path = ensure_cookies_file()
+    if cookies_path:
+        logger.info(f"Using cookies from {cookies_path}")
+    else:
+        logger.warning("No valid cookies found. Some YouTube videos may fail.")
 
 @app.get("/generate")
 def generate(url: str, query: str = None):

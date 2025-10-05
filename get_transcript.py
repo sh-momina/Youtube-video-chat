@@ -27,10 +27,17 @@ def generate_transcript(video_url: str):
     cookies_path = ensure_cookies_file()
 
     ydl_opts = {
-        "format": "bestaudio/best",
-        "outtmpl": "audio.%(ext)s",
-        "quiet": True,
-    }
+    "format": "bestaudio/best",
+    "outtmpl": "audio.%(ext)s",
+    "postprocessors": [{
+        "key": "FFmpegExtractAudio",
+        "preferredcodec": "mp3",
+        "preferredquality": "192",
+    }],
+    "cookiefile": cookies_path if cookies_path else None,
+    "quiet": True,
+}
+    
     if cookies_path:
         # Python yt-dlp option for cookie file
         ydl_opts["cookiefile"] = cookies_path

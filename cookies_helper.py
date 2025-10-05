@@ -20,6 +20,7 @@ def ensure_cookies_file(path="cookies.txt"):
     raw = os.getenv("YTDLP_COOKIES")
     b64 = os.getenv("YTDLP_COOKIES_B64")
 
+    # Case 1: Raw cookies (preferred, easier)
     if raw:
         try:
             with open(path, "w", encoding="utf-8") as f:
@@ -30,14 +31,21 @@ def ensure_cookies_file(path="cookies.txt"):
             logger.exception("Failed writing raw cookies")
             return None
 
+    # Case 2: Base64 cookies
     if b64:
         try:
-            data = base64.b64decode(b64, validate=False)
+            # Normalize base64 string (strip whitespace, fix padding)
+            b64_clean = b64.strip().replace("\n", "")
+            padding = len(b64_clean) % 4
+            if padding:
+                b64_clean += "=" * (4 - padding)
+
+            data = base64.b64decode(b64_clean, validate=False)
             with open(path, "wb") as f:
                 f.write(data)
             logger.info(f"Wrote cookies file from YTDLP_COOKIES_B64 to {path}")
             return path
-        except Exception as e:
+        except Exception:
             logger.exception("Failed decoding/writing base64 cookies")
             return None
 
