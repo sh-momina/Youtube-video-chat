@@ -39,3 +39,4 @@ cd Youtube-video-chat
 streamlit run ui.py
 
 <img width="920" height="439" alt="image" src="https://github.com/user-attachments/assets/91e43073-b596-4b91-bb65-c3304747f48d" />
+![App Preview](https://github.com/user-attachments/assets/91e43073-b596-4b91-bb65-c3304747f48d)
