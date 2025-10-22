@@ -38,4 +38,5 @@ git clone https://github.com/sh-momina/Youtube-video-chat.git
 cd Youtube-video-chat
 streamlit run ui.py
 
-![App Preview](https://github.com/user-attachments/assets/91e43073-b596-4b91-bb65-c3304747f48d)
+![App Preview](https://github.com/user-attachments/assets/91e43073-b596-4b91-bb65-c3304747f48d.png)
+
