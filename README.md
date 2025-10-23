@@ -25,8 +25,8 @@ It takes a YouTube URL, processes its transcript (or captions), and allows you t
 - **Backend:** Python (FastAPI)  
 - **Libraries & APIs:**
   - `whisper-api` — for fetching video transcripts from the audios   
-  - `langchain` / `transformers` / `openai` — for question answering (depending on your implementation) 
-- **Languages:** 100% Python (with HTML templates)
+  - `langchain` / `transformers` / `openai` — for question answering
+- **Languages:** Python 
 
 ---
 
